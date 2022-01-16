@@ -1,0 +1,10 @@
+[package]
+name = "ludo-the-game-rs"
+author = "Aditya Gupta <ag15035@gmail.com>"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arr_macro = "0.1.3"
+crossterm = "0.22.1"
+tui = { version = "0.16.0", default-features = false, features = ['crossterm'] }
