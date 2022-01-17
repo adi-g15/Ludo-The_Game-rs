@@ -1,6 +1,6 @@
 use std::io::{stdout, Write};
 
-use crate::Display;
+use crate::display::Display;
 use crossterm::{
     cursor,
     style::{self, Color, Stylize},
@@ -57,9 +57,9 @@ impl Display {
             Err(e) => panic!("{:?}", e),
         };
 
-        let left_spacing: u16 = (columns as u16 - (15 * (h_scale) + 1)) / 2;
+        let left_spacing: u16 = (columns as u16 - (15 * (h_scale + 1) + 1) - 3/*due to numbers*/) / 2;
 
-        // Some gap between Header and Board
+        // Left Margin
         stdout
             .queue(cursor::MoveToColumn(left_spacing as u16 + 1 + (h_scale / 2))).unwrap();
 
@@ -246,54 +246,82 @@ impl Display {
         board_start_row: u16,
         h_scale: u16,
         v_scale: u16,
+        board_contents: Vec<((u8,u8), String)>
     ) {
         // START: Board Content
         let mut stdout = stdout();
 
-        for (r, row) in self.board.iter().enumerate() {
-            for (c, cell) in row.iter().enumerate() {
-                // Inner Square
-                if r >= 6 && r <= 9 && c >= 6 && c <= 9 {
-                    continue;
-                }
+        for ((r, c), mut cell) in board_contents {
+            // If this has value, then means print it with that color's background
+            let mut color = Option::None;
 
-                // Red Square
-                if r >= 9 && c <= 5 {
-                    if !(((r,c) == (10,1)) || ((r,c) == (10,4)) || ((r,c) == (13,1)) || ((r,c) == (13,4))) {
-                        continue;
-                    }
-                }
-
-                // Green Square
-                if r <= 5 && c <= 5 {
-                    if !(((r,c) == (1,1)) || ((r,c) == (1,4)) || ((r,c) == (4,1)) || ((r,c) == (4,4))) {
-                        continue;
-                    }
-                }
-
-                // Yellow Square
-                if r <= 5 && c >= 9 {
-                    if !(((r,c) == (1,10)) || ((r,c) == (4,10)) || ((r,c) == (1,13)) || ((r,c) == (4,13))) {
-                        continue;
-                    }
-                }
-
-                // Blue Square
-                if r >= 9 && c >= 9 {
-                    if !(((r,c) == (10,10)) || ((r,c) == (10,13)) || ((r,c) == (13,10)) || ((r,c) == (13,13))) {
-                        continue;
-                    }
-                }
-                
-                stdout
-                    .queue(cursor::MoveTo(
-                        (board_start_col + (c as u16) * (h_scale + 1) + (h_scale / 2) + 1).into(),
-                        (board_start_row + (r as u16) * (v_scale + 1) + 1) as u16,
-                    ))
-                    .unwrap()
-                    .queue(style::Print(if cell.is_empty() { " " } else { cell }))
-                    .unwrap();
+            // Inner Square
+            if r >= 6 && r <= 9 && c >= 6 && c <= 9 {
+                continue;
             }
+
+            // Safe Spots
+            if [(1, 8), (2, 6), (6, 1), (6, 12), (8, 2), (8, 13), (12, 8), (13, 6)].contains(&(r,c)) {
+                // Safe spots will have a grey background
+                color = Some(Color::Grey);
+            }
+
+            // Red Square
+            if r >= 9 && c <= 5 {
+                if !(((r,c) == (10,1)) || ((r,c) == (10,4)) || ((r,c) == (13,1)) || ((r,c) == (13,4))) {
+                    continue;
+                } else {
+                    // cell = "🍎".to_string();
+                    cell = "##".to_string();
+                }
+            }
+
+            // Green Square
+            if r <= 5 && c <= 5 {
+                if !(((r,c) == (1,1)) || ((r,c) == (1,4)) || ((r,c) == (4,1)) || ((r,c) == (4,4))) {
+                    continue;
+                } else {
+                    // cell = "🥗".to_string();
+                    cell = "##".to_string();
+                }
+            }
+
+            // Yellow Square
+            if r <= 5 && c >= 9 {
+                if !(((r,c) == (1,10)) || ((r,c) == (4,10)) || ((r,c) == (1,13)) || ((r,c) == (4,13))) {
+                    continue;
+                } else {
+                    // cell = "💛".to_string();
+                    cell = "##".to_string();
+                }
+
+            }
+
+            // Blue Square
+            if r >= 9 && c >= 9 {
+                if !(((r,c) == (10,10)) || ((r,c) == (10,13)) || ((r,c) == (13,10)) || ((r,c) == (13,13))) {
+                    continue;
+                } else {
+                    // cell = "📘".to_string();
+                    cell = "##".to_string();
+                    // color = Some(Color::Blue);
+                }
+            }
+
+            stdout
+                .queue(cursor::MoveTo(
+                    (board_start_col + (c as u16) * (h_scale + 1) + (h_scale / 2)).into(),
+                    (board_start_row + (r as u16) * (v_scale + 1) + 1) as u16,
+                )).unwrap();
+
+            match color {
+                Some(color) => stdout.queue(
+                    style::PrintStyledContent((if cell.is_empty() { " " } else { &cell }).with(color))
+                ),
+                None => stdout.queue(
+                    style::Print(if cell.is_empty() { " " } else { &cell })
+                )
+            }.unwrap();
         }
         // END: Board Content
     }
@@ -325,7 +353,7 @@ impl Display {
         for r in row_start..row_end {
             stdout
                 .queue(cursor::MoveTo(
-                    board_start_col + col_start * (h_scale + 1) + 1,
+                    board_start_col + col_start * (h_scale + 1),
                     board_start_row + r * (v_scale + 1) + 1,
                 ))
                 .unwrap()
@@ -337,7 +365,7 @@ impl Display {
                 for i in 0..v_scale {
                     stdout
                         .queue(cursor::MoveTo(
-                            (board_start_col + col_start * (h_scale + 1) + 1).into(),
+                            (board_start_col + col_start * (h_scale + 1)).into(),
                             (board_start_row + r * (v_scale + 1) + i + 2).into(),
                         ))
                         .unwrap()
@@ -345,21 +373,6 @@ impl Display {
                         .unwrap();
                 }
             }
-        }
-    }
-
-    fn safe_spots(&mut self) {
-        for coord in [
-            (1, 8),
-            (2, 6),
-            (6, 1),
-            (6, 12),
-            (8, 2),
-            (8, 13),
-            (12, 8),
-            (13, 6),
-        ] {
-            self.board[coord.0][coord.1] = String::from("∅");
         }
     }
 }

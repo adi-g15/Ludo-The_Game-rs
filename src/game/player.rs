@@ -1,7 +1,11 @@
-use crate::engine::Colour;
+use std::cell::RefCell;
+
+use crate::engine::{Rang, Goti};
 
 pub struct Player {
-    colour: Colour,
-    moving_gotis: Colour,
-    num_finished: u8
+    pub name: String,
+    pub colour: Rang,
+    pub moving_gotis: Vec<RefCell<Goti>>,
+    pub locked_gotis: Vec<RefCell<Goti>>,
+    pub num_finished: u8
 }

@@ -1,4 +1,3 @@
-use arr_macro::arr;
 use crossterm::{
     self, cursor,
     style::{self, Color, Stylize},
@@ -9,22 +8,17 @@ use std::{io::{stdout, Write, stdin}, thread, time::Duration};
 mod parts;  // update_display ke internals hai usme, to keep code cleaner here, code dekhna ho pura to parts.rs file dekho
 
 pub struct Display {
-    pub board: [[String; 15]; 15],
     player_name: String,
 }
 
 impl Display {
     pub fn new() -> Self {
-        const EMPTY_ROW: [String; 15] = arr![String::new(); 15];
-
         let display = Display {
-            board: arr![EMPTY_ROW; 15],
             player_name: String::new(),
         };
 
-        Display::ensure_terminal_size();
-        // Display::splash_screen("Namaste from Ludo-The_Game 🙏", None);
-        thread::sleep(Duration::from_millis(2000));
+        Display::splash_screen("Namaste from Ludo-The_Game 🙏", None);
+        thread::sleep(Duration::from_millis(1200));
 
         display
     }
@@ -112,8 +106,10 @@ impl Display {
         self.player_name = name.to_string();
     }
 
+    // This way, all 3 components: game, engine & display are separate
+    pub fn update_display(&self, board_contents: Vec<((u8,u8), String)> ) {
+        Display::ensure_terminal_size();
 
-    pub fn update_display(&self) {
         let player_name = &self.player_name;
 
         // terminal::enable_raw_mode();
@@ -137,7 +133,7 @@ impl Display {
         self.header();
         let ((board_start_col, board_start_row),(board_end_col, board_end_row))
             = self.board_design(h_scale, v_scale);
-        self.update_according_to_ludo_board(board_start_col, board_start_row, h_scale, v_scale);
+        self.update_according_to_ludo_board(board_start_col, board_start_row, h_scale, v_scale, board_contents);
 
         stdout
             .queue(cursor::MoveTo(board_end_col, board_end_row)).unwrap()
