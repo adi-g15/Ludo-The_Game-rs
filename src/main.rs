@@ -14,7 +14,7 @@ fn main() {
     let display_loop = display.init_display();
 
     some_func(&mut display);
-    thread::sleep(Duration::from_millis(5000));
+    thread::sleep(Duration::from_millis(3000));
     display.end_display();
     display_loop.join().unwrap();
 }
