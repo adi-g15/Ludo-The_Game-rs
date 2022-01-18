@@ -5,6 +5,8 @@ pub enum Rang {
     Yellow, // पीला
     Blue    // नीला
 }
+
+#[allow(non_snake_case)]
 impl Rang {
     pub(crate) fn GetStartCoord(colour: Rang) -> (u8, u8) {
         match colour {

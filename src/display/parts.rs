@@ -15,12 +15,12 @@ impl Display {
         let vert_char = "│";
 
         let msg = " Namaste from Ludo-The_Game 🙏 ";
-        let (columns, rows) = match terminal::size() {
+        let (columns, _rows) = match terminal::size() {
             Ok(size) => (size.0 as usize, size.1 as usize),
             Err(e) => panic!("{:?}", e),
         };
 
-        stdout.queue(terminal::Clear(ClearType::All));
+        stdout.queue(terminal::Clear(ClearType::All)).unwrap();
 
         // START: Header
         let left_spacing = (columns - msg.len()) / 2;
@@ -52,7 +52,7 @@ impl Display {
         let hor_char = "─";
         let vert_char = "│";
 
-        let (columns, rows) = match terminal::size() {
+        let (columns, _rows) = match terminal::size() {
             Ok(size) => (size.0 as usize, size.1 as usize),
             Err(e) => panic!("{:?}", e),
         };
@@ -182,12 +182,11 @@ impl Display {
         let vert_char = "│";
 
         let (columns, rows) = terminal::size().unwrap();
-        let min_side_margin = 8;
         let original_position = cursor::position().unwrap();
 
         let mut stdout = stdout();
 
-        stdout.execute(terminal::Clear(ClearType::All));
+        stdout.execute(terminal::Clear(ClearType::All)).unwrap();
 
         stdout
             .queue(cursor::MoveTo(1, 0))
@@ -235,9 +234,9 @@ impl Display {
         .unwrap();
 
         // Restore Cursor Position
-        stdout.queue(cursor::MoveTo(original_position.0, original_position.1));
-
-        stdout.flush();
+        stdout
+            .queue(cursor::MoveTo(original_position.0, original_position.1)).unwrap()
+            .flush().unwrap();
     }
 
     pub fn update_according_to_ludo_board(
@@ -256,7 +255,7 @@ impl Display {
             let mut color = Option::None;
 
             // Inner Square
-            if r >= 6 && r <= 9 && c >= 6 && c <= 9 {
+            if r >= 6 && r <= 8 && c >= 6 && c <= 8 {
                 continue;
             }
 

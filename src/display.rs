@@ -1,7 +1,7 @@
 use crossterm::{
     self, cursor,
     style::{self, Color, Stylize},
-    terminal::{self, ClearType}, ExecutableCommand, QueueableCommand,
+    terminal, ExecutableCommand, QueueableCommand,
 };
 use std::{io::{stdout, Write, stdin}, thread, time::Duration};
 
@@ -17,6 +17,7 @@ impl Display {
             player_name: String::new(),
         };
 
+        stdout().execute(terminal::SetTitle("Ludo-The_Game")).unwrap();
         Display::splash_screen("Namaste from Ludo-The_Game 🙏", None);
         thread::sleep(Duration::from_millis(1200));
 
@@ -61,7 +62,7 @@ impl Display {
             .queue(cursor::MoveTo(((columns as usize - message.len()) as u16)/2, (rows - 5)/2)).unwrap();
 
         // Print Message
-        stdout.queue(style::PrintStyledContent(message.bold()));
+        stdout.queue(style::PrintStyledContent(message.bold())).unwrap();
 
         for (i,name) in names.iter_mut().enumerate() {
             stdout
@@ -114,7 +115,6 @@ impl Display {
 
         // terminal::enable_raw_mode();
         let mut stdout = stdout();
-        stdout.execute(terminal::SetTitle("Ludo-The_Game"));
 
         stdout
             .queue(terminal::Clear(terminal::ClearType::All))
@@ -122,7 +122,7 @@ impl Display {
             .queue(cursor::Hide)
             .unwrap();
 
-        let (columns, rows) = match terminal::size() {
+        let (columns, _rows) = match terminal::size() {
             Ok(size) => (size.0 as usize, size.1 as usize),
             Err(e) => panic!("{:?}", e),
         };

@@ -12,7 +12,7 @@ use self::{
 };
 pub use rang::Rang; // 'Colour' use krne se confusion hota h kyunki crossterm::Color me bhi h
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum MoveResult {
     NormalMove((u8, u8)), // normal move
     Attacked((u8, u8)),   // attacked a goti already present there
@@ -40,8 +40,8 @@ impl LudoEngine {
         }
 
         // Bas is array ko initialise krne ke liye itna krna pda :')
-        let mut board: [[Box; 15]; 15] = array_init(|i| {
-            array_init(|j| Box {
+        let mut board: [[Box; 15]; 15] = array_init(|_| {
+            array_init(|_| Box {
                 cell_type: LudoCellType::NoUse,
                 gotis: Vec::new(),
             })
@@ -148,16 +148,6 @@ impl LudoEngine {
         &self.board
     }
 
-    pub fn get_locked_gotis(&self, rang: Rang) -> Vec<Rc<RefCell<LudoGoti>>> {
-        match self.locked_gotis.get(&rang) {
-            Some(v) => v.clone(),
-            None => panic!(
-                "Tried to get_locked_gotis for non-playing colour: {:?}",
-                rang
-            ),
-        }
-    }
-
     /** @note Will always return `true` for a colour that is not playing */
     pub(crate) fn is_finished(&self, colour: Rang) -> bool {
         if self.active_colours.contains(&colour) == false {
@@ -173,7 +163,7 @@ impl LudoEngine {
     }
 
     // Returns Err(()), if no locked goti present
-    pub fn unlock_goti(&mut self, colour: Rang) -> Result<(),()> {
+    pub fn unlock_goti(&mut self, colour: Rang) -> Result<(), ()> {
         let locked_positions = Rang::GetLockedPositions(colour);
 
         // SAFETY: If the attacked_goti was moving, that means atleast 1 locked_positions must be empty, so unwrap() wont panic
@@ -182,7 +172,8 @@ impl LudoEngine {
             .position(|coord| {
                 self.board[coord.0 as usize][coord.1 as usize]
                     .gotis
-                    .is_empty() == false
+                    .is_empty()
+                    == false
             })
             .unwrap();
         let locked_coord = locked_positions[i];
@@ -191,8 +182,8 @@ impl LudoEngine {
             Ok(res) => {
                 debug_assert!(res == MoveResult::Unlocked);
                 Ok(())
-            },
-            Err(_) => Err(())
+            }
+            Err(_) => Err(()),
         }
     }
 
@@ -229,7 +220,16 @@ impl LudoEngine {
             }
         };
 
-        let was_attack = false;
+        let was_attack = {
+            let cell = &self.board[final_coords.0 as usize][final_coords.1 as usize];
+
+            // If it is a SafeSpot, attack can not happen
+            // If it is any other cell where two colors can meet,
+            // then presence of any other colour = presence of enemy... yuddh hoga ab to, jai mahismati
+            (cell.cell_type != LudoCellType::SafeSpot) && (
+                cell.gotis.iter().position(|g|  g.borrow().colour != colour).is_some()
+            )
+        };
         let finished = final_coords == Rang::GetEndCoord(colour);
         let unlocked = final_coords == Rang::GetStartCoord(colour);
 
@@ -317,20 +317,23 @@ impl LudoEngine {
                             .gotis
                             .iter()
                             .position(|g| g.borrow().colour != colour);
-                        dest_cell.gotis.remove(goti_to_remove_idx.unwrap());
 
                         if goti_to_remove_idx.is_none() {
                             break;
                         }
 
-                        dest_cell
+                        let goti_ref = dest_cell
                             .gotis
                             .get(goti_to_remove_idx.unwrap())
                             .unwrap()
-                            .clone()
+                            .clone();
+
+                        dest_cell.gotis.remove(goti_to_remove_idx.unwrap());
+
+                        goti_ref
                     };
 
-                    let locked_positions = Rang::GetLockedPositions(colour);
+                    let locked_positions = Rang::GetLockedPositions(attacked_goti.borrow().colour);
 
                     // SAFETY: If the attacked_goti was moving, that means atleast 1 locked_positions must be empty, so unwrap() wont panic
                     let i = locked_positions
@@ -396,7 +399,7 @@ impl LudoEngine {
 
     /**
      * Invariant: start_coord is a valid coordinate for a goti to exist on the board
-     * Invariant: dist in [1,6]
+     * Note: This does NOT check if goti of such `colour` exists on `start_coord`, for easier debugging or other use by the programmer
      * @returns Some(final_coords), if move possible
      *          None, otherwise if not possible
      */
@@ -406,31 +409,10 @@ impl LudoEngine {
         start_coord: (u8, u8),
         mut dist: u8,
     ) -> Option<(u8, u8)> {
-        if dist > 6 {
-            panic!(".is_move_possible() only supports max dist of 6");
-        }
-
         if self.board[start_coord.0 as usize][start_coord.1 as usize].cell_type
             == LudoCellType::NoUse
         {
             panic!("Invalid start coord: {:?}", start_coord)
-        }
-
-        // Not checking if other goti colour is also in this cell or not
-        let mut goti_is_present = false;
-        for goti in self.board[start_coord.0 as usize][start_coord.1 as usize]
-            .gotis
-            .iter()
-        {
-            if goti.borrow().colour == colour {
-                goti_is_present = true;
-                break;
-            }
-        }
-
-        if goti_is_present == false {
-            // Move not possible, since goti doesn't exist
-            return None;
         }
 
         let goti_is_locked = Rang::GetLockedPositions(colour).contains(&start_coord);
@@ -451,8 +433,9 @@ impl LudoEngine {
 
             if final_coord.0 > 14
                 || final_coord.1 > 14
-                || self.board[final_coord.0 as usize][final_coord.1 as usize].cell_type
-                    == LudoCellType::NoUse
+                || ((self.board[final_coord.0 as usize][final_coord.1 as usize].cell_type
+                    == LudoCellType::NoUse)
+                    && (final_coord != Rang::GetEndCoord(colour)))
             {
                 return None;
             }
@@ -475,7 +458,12 @@ impl LudoEngine {
             };
 
             for goti in gotis {
-                start_coords.push(goti.borrow().coords);
+                if self
+                    .is_move_possible(colour, goti.borrow().coords, dist)
+                    .is_some()
+                {
+                    start_coords.push(goti.borrow().coords);
+                }
             }
         }
 
@@ -565,5 +553,13 @@ impl LudoEngine {
         }
 
         true
+    }
+
+    // Note: returns None for non-playing colors
+    pub(crate) fn get_num_locked(&self, colour: Rang) -> Option<u8> {
+        match self.locked_gotis.get(&colour) {
+            Some(v) => Some(v.len() as u8),
+            None => None
+        }
     }
 }

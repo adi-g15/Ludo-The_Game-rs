@@ -9,7 +9,7 @@ pub struct LudoGoti {
 
 impl Drop for LudoGoti {
     fn drop(&mut self) {
-        debug_println!("Dropping {:?}, was at {:?}", self.colour, self.coords);
+        debug_println!("(Ignore this, if another panic happened before this) Dropping {:?}, was at {:?}", self.colour, self.coords);
         debug_assert!(self.coords == Rang::GetEndCoord(self.colour), "Goti was not at finish location when dropped");
     }
 }

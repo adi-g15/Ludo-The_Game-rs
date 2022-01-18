@@ -17,9 +17,3 @@ pub struct LudoCell {
     pub cell_type: LudoCellType,
     pub gotis: Vec<Rc<RefCell<LudoGoti>>>
 }
-
-impl LudoCell {
-    pub fn is_safe_spot(&self) -> bool {
-        self.cell_type == LudoCellType::SafeSpot
-    }
-}
