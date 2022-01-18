@@ -1,7 +1,8 @@
 mod player;
 
-use std::io::{stdin, Read, stdout, Write};
+use std::io::{stdin, stdout, Write};
 
+use crate::engine::MoveResult;
 use crate::engine::{LudoEngine, Rang, dice::roll};
 use crate::display::Display;
 
@@ -37,9 +38,6 @@ impl LudoGame {
                     Player {
                         name: name.clone(),
                         colour: colors[i],
-                        moving_gotis: Vec::new(),
-                        locked_gotis: engine.get_locked_gotis(colors[i]),
-                        num_finished: 0,
                     }
                 )
             }
@@ -91,43 +89,132 @@ impl LudoGame {
     pub fn play(&mut self) {
         self.update_display();
 
+        // Will be updated at end of each iteration
+        let mut player_index = 0;
+        let mut same_player_next_chance = false;
         loop {
-            for player in self.active_players.iter() {
-                if self.engine.is_finished(player.colour) {
-                    continue;
+            // for player in self.active_players.iter() {
+            same_player_next_chance = false;    // may later be modified, if for eg. '6', or finishes etc.
+
+            let player = &self.active_players[player_index];
+            
+            if self.engine.is_finished(player.colour) {
+                continue;
+            }
+
+            if self.engine.is_game_finished() {
+                break;
+            }
+
+            self.engine.set_current_colour(player.colour);
+            self.display.set_player(&player.name);
+            self.update_display();
+
+            print!("Press Enter to Roll: ");
+            stdout().flush();
+            // ignore input till Enter
+            let mut ignore_buf = String::new();
+            stdin().read_line(&mut ignore_buf);
+            ignore_buf.clear();
+
+            // let roll = roll();
+            let roll = 6;
+
+            println!("Roll Output - {:?}", roll);
+
+            if roll == 6 {
+                same_player_next_chance = true;
+            }
+
+            let movable_gotis = self.engine.get_movable_gotis(player.colour, roll);
+
+            if roll == 6 || !movable_gotis.is_empty() {
+                println!("Chose from these options: ");
+
+                let mut i = 0;
+                if roll == 6 {
+                    println!("0. Unlock New Goti (just type 0)");
+                    i += 1;
                 }
-                self.engine.set_current_colour(player.colour);
-                self.display.set_player(&player.name);
-                self.update_display();
 
-                print!("Press Enter to Roll: ");
-                stdout().flush();
-                // ignore input till Enter
-                let mut ignore_buf = String::new();
-                stdin().read_line(&mut ignore_buf);
-                ignore_buf.clear();
-
-                let mut dice_numbers = Vec::new();
-
-                while *dice_numbers.last().unwrap_or(&6) == 6 {
-                    dice_numbers.push(roll())
+                for c in movable_gotis.iter() {
+                    println!("{}. [{}][{}]", i, c.0, c.1);
+                    i += 1;
                 }
 
-                println!("Roll Outputs - {:?}", dice_numbers);
+                let mut input = String::new();
+                stdin().read_line(&mut input)
+                        .expect("Failed to read input");
+                
+                let trimmed = input.trim();
+                let mut chosen_option = match trimmed.parse::<u8>() {
+                    Ok(i) => i,
+                    Err(e) => {
+                        println!("Not a option: {:?}", trimmed);
+                        println!("Repeating...");
+                        // Probable bug: Dice output wont be same next time
+
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        continue;
+                    }
+                };
+
+                let mut skip_rest = false;
+ 
+                if roll == 6 {
+                    same_player_next_chance = true;
+
+                    if chosen_option == 0 {
+                        self.engine.unlock_goti(player.colour)
+                            .expect("No Goti to unlock... this is a bug, please report at https://github.com/ludo-game-engine/issues");
+                    } else {
+                        chosen_option -= 1;
+                        skip_rest = true;
+                    }
+                }
+
+                if !skip_rest {
+                    // Choice is one of `movable_gotis`
+
+                    match movable_gotis.get(chosen_option as usize) {
+                        Some(start_coord) => {
+                            let result = self.engine.move_goti(player.colour, *start_coord, roll)
+                                        .expect("Could not move, although .get_movable_gotis() said i can :(...  this is a bug, please report at https://github.com/ludo-game-engine/issues");
+
+                            match result {
+                                MoveResult::Attacked(_) | MoveResult::Finished | MoveResult::Unlocked => {
+                                    same_player_next_chance = true;
+                                },
+                                MoveResult::NormalMove(_) => {}
+                            };
+                        },
+                        None => {
+                            println!("Invalid choice: {:?}", chosen_option);
+                        }
+                    }
+                }
+
+            } else {
+                println!("No possible moves...");
+            }
 
                 /*
                 Chose from these gotis : 
-0. Unlock New Goti (just type 0)
+                0. Unlock New Goti (just type 0)
 
-1. [3][8]
+                1. [3][8]
 
-Roll Output - 6 4 
-Enter Goti and dieNumber : 
+                Roll Output - 6 4 
+                Enter Goti and dieNumber : 
 
                 */
 
-                std::thread::sleep(std::time::Duration::from_secs(1));
+            if same_player_next_chance == false {
+                // Next player
+                player_index = (player_index + 1) % self.active_players.len();
             }
+
+            std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
         // !TODO

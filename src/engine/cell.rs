@@ -1,4 +1,5 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
+
 use super::goti::LudoGoti;
 use super::rang::Rang;
 
@@ -12,10 +13,9 @@ pub enum LudoCellType {
     NoUse   // MUST not be mutated, such a cell will panic on invalid (eg. movedHere etc.)
 }
 
-#[derive(Clone)]
 pub struct LudoCell {
     pub cell_type: LudoCellType,
-    pub gotis: Vec<RefCell<LudoGoti>>
+    pub gotis: Vec<Rc<RefCell<LudoGoti>>>
 }
 
 impl LudoCell {
